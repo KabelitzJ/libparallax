@@ -12,7 +12,7 @@ namespace parallax {
 constexpr auto infinity_score = 1'000'000;
 constexpr auto mate_score = 100'000;
 
-auto negamax(position& current_position, const int depth, int alpha, const int beta, std::uint64_t& node_count) -> int {
+auto negamax(position& current_position, const std::int32_t depth, std::int32_t alpha, const std::int32_t beta, std::uint64_t& node_count) -> std::int32_t {
   ++node_count;
 
   if (depth == 0) {
@@ -52,9 +52,9 @@ auto negamax(position& current_position, const int depth, int alpha, const int b
   return best_score;
 }
 
-auto search(position& current_position, const int depth) -> search_result {
+auto search(position& current_position, const std::int32_t depth) -> search_result {
   auto result = search_result{};
-  result.nodes = 0;
+  result.nodes = 0u;
 
   const auto legal_moves = generate_legal_moves(current_position);
 

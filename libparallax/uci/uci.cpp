@@ -37,7 +37,7 @@ auto parse_square(const std::string_view text) -> square {
     return square::none;
   }
 
-  return make_square(file, rank);
+  return make_square(static_cast<std::uint32_t>(file), static_cast<std::uint32_t>(rank));
 }
 
 auto find_legal_move(const position& current_position, const std::string_view move_text) -> move {
@@ -192,7 +192,7 @@ auto handle_go_command(position& current_position, std::ostream& output) -> void
   output.flush();
 }
 
-auto run_uci_loop(std::istream& input, std::ostream& output) -> int {
+auto run_uci_loop(std::istream& input, std::ostream& output) -> std::int32_t {
   auto current_position = position::from_fen(startpos_fen).value();
 
   auto line = std::string{};

@@ -9,11 +9,11 @@ namespace parallax {
 
 struct search_result {
   move best_move;
-  int score;
+  std::int32_t score;
   std::uint64_t nodes;
-};
+}; // struct search_result
 
-auto search(position& current_position, const int depth) -> search_result;
+auto search(position& current_position, const std::int32_t depth) -> search_result;
 
 } // namespace parallax
 

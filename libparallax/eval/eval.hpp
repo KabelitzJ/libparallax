@@ -6,7 +6,7 @@
 
 namespace parallax {
 
-auto evaluate(const position& current_position) noexcept -> int;
+auto evaluate(const position& current_position) noexcept -> std::int32_t;
 
 } // namespace parallax
 

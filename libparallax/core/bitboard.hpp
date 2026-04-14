@@ -31,11 +31,11 @@ inline constexpr auto rank_7 = rank_1 << (8 * 6);
 inline constexpr auto rank_8 = rank_1 << (8 * 7);
 
 constexpr auto square_to_bit(const square target_square) noexcept -> bitboard {
-  return bitboard{1} << static_cast<int>(target_square);
+  return bitboard{1} << static_cast<std::int32_t>(target_square);
 }
 
-constexpr auto popcount(const bitboard board) noexcept -> int {
-  return std::popcount(board);
+constexpr auto popcount(const bitboard board) noexcept -> std::uint32_t {
+  return static_cast<std::uint32_t>(std::popcount(board));
 }
 
 constexpr auto lsb(const bitboard board) noexcept -> square {
@@ -108,7 +108,7 @@ private:
 
   bitboard _remaining{0};
 
-};
+}; // class bitboard_iterator
 
 class bitboard_range {
 
@@ -129,7 +129,7 @@ private:
 
   bitboard _board{0};
 
-};
+}; // class bitboard_range
 
 constexpr auto squares_of(const bitboard board) noexcept -> bitboard_range {
   return bitboard_range{board};

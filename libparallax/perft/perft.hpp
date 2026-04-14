@@ -11,7 +11,7 @@ namespace parallax {
 
 auto generate_legal_moves(const position& position) -> std::vector<move>;
 
-inline auto perft(position& position, int depth) -> std::uint64_t {
+inline auto perft(position& position, std::int32_t depth) -> std::uint64_t {
   if (depth == 0) {
     return 1;
   }
@@ -28,7 +28,7 @@ inline auto perft(position& position, int depth) -> std::uint64_t {
   return nodes;
 }
 
-inline auto perft_divide(position& position, int depth) -> std::uint64_t {
+inline auto perft_divide(position& position, std::int32_t depth) -> std::uint64_t {
   auto moves = generate_legal_moves(position);
   auto total = std::uint64_t{0};
   for (auto m : moves) {

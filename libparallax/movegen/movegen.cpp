@@ -43,17 +43,17 @@ auto generate_pawn_moves(const position& current_position, std::vector<move>& mo
   const auto double_push_offset = is_white ? -16 : 16;
 
   for (const auto target_square : squares_of(single_push_targets & ~promotion_rank)) {
-    const auto from_square = static_cast<square>(static_cast<int>(target_square) + push_offset);
+    const auto from_square = static_cast<square>(static_cast<std::int32_t>(target_square) + push_offset);
     moves.emplace_back(from_square, target_square, move_flag::quiet);
   }
 
   for (const auto target_square : squares_of(single_push_targets & promotion_rank)) {
-    const auto from_square = static_cast<square>(static_cast<int>(target_square) + push_offset);
+    const auto from_square = static_cast<square>(static_cast<std::int32_t>(target_square) + push_offset);
     add_pawn_promotions(moves, from_square, target_square, false);
   }
 
   for (const auto target_square : squares_of(double_push_targets)) {
-    const auto from_square = static_cast<square>(static_cast<int>(target_square) + double_push_offset);
+    const auto from_square = static_cast<square>(static_cast<std::int32_t>(target_square) + double_push_offset);
     moves.emplace_back(from_square, target_square, move_flag::double_push);
   }
 

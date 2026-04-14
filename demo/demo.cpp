@@ -3,6 +3,6 @@
 
 #include <libparallax/uci/uci.hpp>
 
-auto main() -> int {
+auto main() -> std::int32_t {
   return parallax::run_uci_loop(std::cin, std::cout);
 }

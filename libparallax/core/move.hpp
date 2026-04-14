@@ -24,7 +24,7 @@ enum class square : std::uint8_t {
 }; // enum class square
 
 enum class move_flag : std::uint8_t {
-  quiet = 0,
+  quiet = 0u,
   double_push = 1,
   castle_king = 2,
   castle_queen = 3,
@@ -40,16 +40,16 @@ enum class move_flag : std::uint8_t {
   promo_capture_queen = 15,
 }; // enum class move_flag
 
-constexpr auto make_square(int file, int rank) noexcept -> square {
+constexpr auto make_square(std::uint32_t file, std::uint32_t rank) noexcept -> square {
   return static_cast<square>(rank * 8 + file);
 }
 
-constexpr auto file_of(const square square) noexcept -> int {
-  return static_cast<int>(square) & 7;
+constexpr auto file_of(const square square) noexcept -> std::int32_t {
+  return static_cast<std::int32_t>(square) & 7;
 }
 
-constexpr auto rank_of(const square square) noexcept -> int {
-  return static_cast<int>(square) >> 3;
+constexpr auto rank_of(const square square) noexcept -> std::int32_t {
+  return static_cast<std::int32_t>(square) >> 3;
 }
 
 class move {

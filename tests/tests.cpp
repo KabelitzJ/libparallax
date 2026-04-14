@@ -179,9 +179,9 @@ TEST(attacks, white_pawn_a4_attacks_b5_only) {
 }
 
 TEST(attacks, knight_total_moves_is_336) {
-  auto total = 0;
+  auto total = 0u;
 
-  for (auto index = 0; index < 64; ++index) {
+  for (auto index = 0u; index < 64u; ++index) {
     total += popcount(knight_attacks(static_cast<square>(index)));
   }
 
@@ -666,7 +666,7 @@ TEST(search, doesnt_hang_on_stalemate) {
   EXPECT_EQ(result.score, 0);
 }
 
-auto main(int argc, char* argv[]) -> int {
+auto main(std::int32_t argc, char* argv[]) -> std::int32_t {
   testing::InitGoogleTest(&argc, argv);
 
   return RUN_ALL_TESTS();

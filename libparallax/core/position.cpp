@@ -84,8 +84,8 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
 
   auto result = position{};
 
-  auto current_file = 0;
-  auto current_rank = 7;
+  auto current_file = std::int32_t{0};
+  auto current_rank = std::int32_t{7};
 
   for (const auto character : fields[0]) {
     if (character == '/') {
@@ -93,7 +93,7 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
         return std::unexpected{fmt::format("rank {} has {} files, expected 8", current_rank, current_file)};
       }
 
-      current_file = 0;
+      current_file = 0u;
       --current_rank;
 
       if (current_rank < 0) {
@@ -124,7 +124,7 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
     }
 
     const auto [piece_color, piece_type] = *parsed_piece;
-    const auto target_square = make_square(current_file, current_rank);
+    const auto target_square = make_square(static_cast<std::uint32_t>(current_file), static_cast<std::uint32_t>(current_rank));
     const auto square_bit = bitboard{1} << static_cast<int>(target_square);
 
     result._pieces[static_cast<std::size_t>(piece_color)][static_cast<std::size_t>(piece_type)] |= square_bit;
@@ -146,7 +146,7 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
     return std::unexpected{fmt::format("invalid side to move '{}'", fields[1])};
   }
 
-  result._castling_rights = 0;
+  result._castling_rights = 0u;
 
   if (fields[2] != "-") {
     for (const auto character : fields[2]) {
@@ -167,10 +167,10 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
       return std::unexpected{fmt::format("invalid en passant square '{}'", fields[3])};
     }
 
-    result._ep_square = make_square(fields[3][0] - 'a', fields[3][1] - '1');
+    result._ep_square = make_square(static_cast<std::uint32_t>(fields[3][0] - 'a'), static_cast<std::uint32_t>(fields[3][1] - '1'));
   }
 
-  auto halfmove_clock = 0;
+  auto halfmove_clock = std::int32_t{0};
   const auto halfmove_result = std::from_chars(fields[4].data(), fields[4].data() + fields[4].size(), halfmove_clock);
 
   if (halfmove_result.ec != std::errc{} || halfmove_result.ptr != fields[4].data() + fields[4].size() || halfmove_clock < 0 || halfmove_clock > 255) {
@@ -179,7 +179,7 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
 
   result._halfmove_clock = static_cast<std::uint8_t>(halfmove_clock);
 
-  auto fullmove_number = 0;
+  auto fullmove_number = 0u;
   const auto fullmove_result = std::from_chars(fields[5].data(), fields[5].data() + fields[5].size(), fullmove_number);
 
   if (fullmove_result.ec != std::errc{} || fullmove_result.ptr != fields[5].data() + fields[5].size() || fullmove_number < 1 || fullmove_number > 65535) {
@@ -195,10 +195,10 @@ auto position::to_fen() const -> std::string {
   auto output = std::string{};
 
   for (auto current_rank = 7; current_rank >= 0; --current_rank) {
-    auto empty_count = 0;
+    auto empty_count = 0u;
 
-    for (auto current_file = 0; current_file < 8; ++current_file) {
-      const auto current_square = make_square(current_file, current_rank);
+    for (auto current_file = 0u; current_file < 8; ++current_file) {
+      const auto current_square = make_square(current_file, static_cast<std::uint32_t>(current_rank));
       const auto piece_type = piece_at(current_square);
 
       if (piece_type == piece::none) {
@@ -208,7 +208,7 @@ auto position::to_fen() const -> std::string {
 
       if (empty_count > 0) {
         output += static_cast<char>('0' + empty_count);
-        empty_count = 0;
+        empty_count = 0u;
       }
 
       output += char_from_piece(color_at(current_square), piece_type);
@@ -375,7 +375,7 @@ auto position::make_move(const move played_move) -> void {
   ++_halfmove_clock;
 
   if (mover_piece == piece::pawn) {
-    _halfmove_clock = 0;
+    _halfmove_clock = 0u;
   }
 
   switch (move_flags) {
@@ -386,7 +386,7 @@ auto position::make_move(const move played_move) -> void {
     case move_flag::double_push: {
       move_piece(mover_color, mover_piece, from_square, to_square);
       const auto ep_rank_offset = mover_color == color::white ? -8 : 8;
-      _ep_square = static_cast<square>(static_cast<int>(to_square) + ep_rank_offset);
+      _ep_square = static_cast<square>(static_cast<std::int32_t>(to_square) + ep_rank_offset);
       break;
     }
     case move_flag::capture: {
@@ -394,15 +394,15 @@ auto position::make_move(const move played_move) -> void {
       undo.captured = captured_piece;
       remove_piece(enemy_color, captured_piece, to_square);
       move_piece(mover_color, mover_piece, from_square, to_square);
-      _halfmove_clock = 0;
+      _halfmove_clock = 0u;
       break;
     }
     case move_flag::en_passant: {
-      const auto captured_pawn_square = static_cast<square>(static_cast<int>(to_square) + (mover_color == color::white ? -8 : 8));
+      const auto captured_pawn_square = static_cast<square>(static_cast<std::int32_t>(to_square) + (mover_color == color::white ? -8 : 8));
       undo.captured = piece::pawn;
       remove_piece(enemy_color, piece::pawn, captured_pawn_square);
       move_piece(mover_color, piece::pawn, from_square, to_square);
-      _halfmove_clock = 0;
+      _halfmove_clock = 0u;
       break;
     }
     case move_flag::castle_king: {
@@ -426,7 +426,7 @@ auto position::make_move(const move played_move) -> void {
       const auto promoted_to = static_cast<piece>(static_cast<std::uint8_t>(move_flags) - static_cast<std::uint8_t>(move_flag::promo_knight) + static_cast<std::uint8_t>(piece::knight));
       remove_piece(mover_color, piece::pawn, from_square);
       place_piece(mover_color, promoted_to, to_square);
-      _halfmove_clock = 0;
+      _halfmove_clock = 0u;
       break;
     }
     case move_flag::promo_capture_knight:
@@ -439,7 +439,7 @@ auto position::make_move(const move played_move) -> void {
       remove_piece(enemy_color, captured_piece, to_square);
       remove_piece(mover_color, piece::pawn, from_square);
       place_piece(mover_color, promoted_to, to_square);
-      _halfmove_clock = 0;
+      _halfmove_clock = 0u;
       break;
     }
 
@@ -488,7 +488,7 @@ auto position::unmake_move() -> void {
     }
     case move_flag::en_passant: {
       move_piece(mover_color, piece::pawn, to_square, from_square);
-      const auto captured_pawn_square = static_cast<square>(static_cast<int>(to_square) + (mover_color == color::white ? -8 : 8));
+      const auto captured_pawn_square = static_cast<square>(static_cast<std::int32_t>(to_square) + (mover_color == color::white ? -8 : 8));
       place_piece(enemy_color, piece::pawn, captured_pawn_square);
       break;
     }

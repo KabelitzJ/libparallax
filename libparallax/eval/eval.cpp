@@ -7,7 +7,7 @@
 
 namespace parallax {
 
-constexpr auto piece_values = std::array<int, 6>{
+constexpr auto piece_values = std::array<std::uint32_t, 6>{
   100,   // pawn
   320,   // knight
   330,   // bishop
@@ -16,11 +16,11 @@ constexpr auto piece_values = std::array<int, 6>{
   0,     // king (not counted; can't be captured)
 };
 
-auto evaluate(const position& current_position) noexcept -> int {
-  auto white_score = 0;
-  auto black_score = 0;
+auto evaluate(const position& current_position) noexcept -> std::int32_t {
+  auto white_score = std::uint32_t{0};
+  auto black_score = std::uint32_t{0};
 
-  for (auto piece_index = 0uz; piece_index < 6; ++piece_index) {
+  for (auto piece_index = 0u; piece_index < 6u; ++piece_index) {
     const auto piece_type = static_cast<piece>(piece_index);
     const auto value = piece_values[piece_index];
 
@@ -28,7 +28,7 @@ auto evaluate(const position& current_position) noexcept -> int {
     black_score += value * popcount(current_position.pieces(color::black, piece_type));
   }
 
-  const auto raw_score = white_score - black_score;
+  const auto raw_score = static_cast<std::int32_t>(white_score) - static_cast<std::int32_t>(black_score);
 
   return current_position.side_to_move() == color::white ? raw_score : -raw_score;
 }

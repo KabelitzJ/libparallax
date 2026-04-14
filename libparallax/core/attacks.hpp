@@ -59,7 +59,7 @@ constexpr auto compute_pawn_attacks(const color piece_color, const square origin
 constexpr auto build_knight_table() noexcept -> std::array<bitboard, 64> {
   auto table = std::array<bitboard, 64>{};
 
-  for (auto index = 0; index < 64; ++index) {
+  for (auto index = 0u; index < 64u; ++index) {
     table[index] = compute_knight_attacks(static_cast<square>(index));
   }
 
@@ -69,7 +69,7 @@ constexpr auto build_knight_table() noexcept -> std::array<bitboard, 64> {
 constexpr auto build_king_table() noexcept -> std::array<bitboard, 64> {
   auto table = std::array<bitboard, 64>{};
 
-  for (auto index = 0; index < 64; ++index) {
+  for (auto index = 0u; index < 64u; ++index) {
     table[index] = compute_king_attacks(static_cast<square>(index));
   }
 
@@ -79,7 +79,7 @@ constexpr auto build_king_table() noexcept -> std::array<bitboard, 64> {
 constexpr auto build_pawn_table(const color piece_color) noexcept -> std::array<bitboard, 64> {
   auto table = std::array<bitboard, 64>{};
 
-  for (auto index = 0; index < 64; ++index) {
+  for (auto index = 0u; index < 64u; ++index) {
     table[index] = compute_pawn_attacks(piece_color, static_cast<square>(index));
   }
 
@@ -89,10 +89,10 @@ constexpr auto build_pawn_table(const color piece_color) noexcept -> std::array<
 inline constexpr auto bishop_directions = std::array{9, 7, -7, -9};
 inline constexpr auto rook_directions = std::array{8, 1, -1, -8};
 
-constexpr auto ray_attacks(const square origin, const int direction, const bitboard occupancy) noexcept -> bitboard {
+constexpr auto ray_attacks(const square origin, const std::int32_t direction, const bitboard occupancy) noexcept -> bitboard {
   auto attacks = bitboard{0};
 
-  auto current_index = static_cast<int>(origin);
+  auto current_index = static_cast<std::int32_t>(origin);
   auto previous_file = file_of(static_cast<square>(current_index));
   auto previous_rank = rank_of(static_cast<square>(current_index));
 
