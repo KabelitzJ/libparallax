@@ -16,9 +16,8 @@ namespace zobrist {
 
 namespace detail {
 
-constexpr auto splitmix64(std::uint64_t state) noexcept -> std::uint64_t {
-  state += 0x9E3779B97F4A7C15ULL;
-  auto result = state;
+constexpr auto splitmix64(const std::uint64_t state) noexcept -> std::uint64_t {
+  auto result = state + 0x9E3779B97F4A7C15ULL;
 
   result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9ULL;
   result = (result ^ (result >> 27)) * 0x94D049BB133111EBULL;
