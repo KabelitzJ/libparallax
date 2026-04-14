@@ -113,7 +113,10 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/core.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/move.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/position.cpp"
+    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/eval/eval.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/movegen/movegen.cpp"
+    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.cpp"
+    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/uci/uci.cpp"
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS ${PROJECT_SOURCE_DIR}
@@ -124,6 +127,7 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/eval/eval.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/movegen/movegen.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/perft/perft.hpp"
+      "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/uci/uci.hpp"
 )
@@ -218,6 +222,10 @@ target_compile_options(
   PRIVATE
     ${_COMPILE_OPTIONS}
 )
+
+if(${PARALLAX_BUILD_DEMO} AND EXISTS "demo/CMakeLists.txt")
+  add_subdirectory(demo)
+endif()
 
 if(${PARALLAX_BUILD_TESTS} AND EXISTS "${PROJECT_SOURCE_DIR}/tests")
   add_subdirectory(${PROJECT_SOURCE_DIR}/tests)

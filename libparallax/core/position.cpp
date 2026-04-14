@@ -12,8 +12,6 @@
 
 namespace parallax {
 
-namespace {
-
 auto piece_from_char(const char character) -> std::expected<std::pair<color, piece>, std::string> {
   const auto piece_color = std::isupper(static_cast<unsigned char>(character)) ? color::white : color::black;
 
@@ -74,8 +72,6 @@ constexpr auto castling_update_table = std::array<std::uint8_t, 64>{
   15, 15, 15, 15, 15, 15, 15, 15,
    7, 15, 15, 15,  3, 15, 15, 11,
 };
-
-} // namespace
 
 auto position::from_fen(const std::string_view fen) -> std::expected<position, std::string> {
   const auto fields_result = split_fen(fen);

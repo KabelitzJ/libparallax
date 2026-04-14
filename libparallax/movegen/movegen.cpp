@@ -6,8 +6,6 @@
 
 namespace parallax {
 
-namespace {
-
 constexpr auto white_kingside_path = square_to_bit(square::f1) | square_to_bit(square::g1);
 constexpr auto white_queenside_path = square_to_bit(square::b1) | square_to_bit(square::c1) | square_to_bit(square::d1);
 constexpr auto black_kingside_path = square_to_bit(square::f8) | square_to_bit(square::g8);
@@ -198,8 +196,6 @@ auto generate_king_moves(const position& current_position, std::vector<move>& mo
     moves.emplace_back(from_square, target_square, move_flag::quiet);
   }
 }
-
-} // namespace
 
 auto generate_pseudo_legal_moves(const position& current_position) -> std::vector<move> {
   auto moves = std::vector<move>{};

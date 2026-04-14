@@ -3,12 +3,12 @@
 
 #include <gtest/gtest.h>
 
-#include <libparallax/core/bitboard.hpp>
-#include <libparallax/core/move.hpp>
-#include <libparallax/core/position.hpp>
-#include <libparallax/core/attacks.hpp>
+#include <libparallax/core/core.hpp>
 #include <libparallax/movegen/movegen.hpp>
 #include <libparallax/perft/perft.hpp>
+#include <libparallax/uci/uci.hpp>
+#include <libparallax/eval/eval.hpp>
+#include <libparallax/search/search.hpp>
 
 using namespace parallax;
 
@@ -561,6 +561,109 @@ TEST(movegen, debug_pin) {
   fmt::println("  e2 empty: {}", copy.piece_at(square::e2) == piece::none);
   fmt::println("  e1 attacked by black: {}", copy.is_square_attacked(square::e1, color::black));
   fmt::println("  side to move: {}", copy.side_to_move() == color::white ? "white" : "black");
+}
+
+TEST(uci, identifies_on_uci_command) {
+  auto input = std::istringstream{"uci\nquit\n"};
+  auto output = std::ostringstream{};
+
+  run_uci_loop(input, output);
+
+  const auto result = output.str();
+
+  EXPECT_NE(result.find("id name"), std::string::npos);
+  EXPECT_NE(result.find("id author"), std::string::npos);
+  EXPECT_NE(result.find("uciok"), std::string::npos);
+}
+
+TEST(uci, responds_readyok) {
+  auto input = std::istringstream{"isready\nquit\n"};
+  auto output = std::ostringstream{};
+
+  run_uci_loop(input, output);
+
+  EXPECT_NE(output.str().find("readyok"), std::string::npos);
+}
+
+TEST(uci, go_from_startpos_emits_bestmove) {
+  auto input = std::istringstream{"position startpos\ngo\nquit\n"};
+  auto output = std::ostringstream{};
+
+  run_uci_loop(input, output);
+
+  const auto result = output.str();
+
+  EXPECT_NE(result.find("bestmove"), std::string::npos);
+}
+
+TEST(uci, position_with_moves_applied) {
+  auto input = std::istringstream{"position startpos moves e2e4 e7e5\ngo\nquit\n"};
+  auto output = std::ostringstream{};
+
+  run_uci_loop(input, output);
+
+  EXPECT_NE(output.str().find("bestmove"), std::string::npos);
+}
+
+TEST(uci, position_fen_parsed) {
+  auto input = std::istringstream{
+    "position fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1\n"
+    "go\n"
+    "quit\n"
+  };
+  auto output = std::ostringstream{};
+
+  run_uci_loop(input, output);
+
+  EXPECT_NE(output.str().find("bestmove"), std::string::npos);
+}
+
+TEST(eval, startpos_is_zero) {
+  const auto pos = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+
+  EXPECT_EQ(evaluate(pos), 0);
+}
+
+TEST(eval, white_up_a_queen) {
+  const auto pos = position::from_fen("4k3/8/8/8/8/8/8/3QK3 w - - 0 1").value();
+
+  EXPECT_EQ(evaluate(pos), 900);
+}
+
+TEST(eval, black_up_a_rook_from_blacks_perspective) {
+  const auto pos = position::from_fen("3rk3/8/8/8/8/8/8/4K3 b - - 0 1").value();
+
+  EXPECT_EQ(evaluate(pos), 500);
+}
+
+TEST(search, finds_mate_in_one) {
+  // White to move, Qa8# is mate
+  auto pos = position::from_fen("k7/8/1K6/8/8/8/8/Q7 w - - 0 1").value();
+
+  const auto result = search(pos, 3);
+
+  EXPECT_EQ(result.best_move.from(), square::a1);
+  EXPECT_EQ(result.best_move.to(), square::a8);
+  EXPECT_GT(result.score, 50000);
+}
+
+TEST(search, captures_free_queen) {
+  // White rook on a1, black queen on a8, nothing defending
+  auto pos = position::from_fen("q3k3/8/8/8/8/8/8/R3K3 w - - 0 1").value();
+
+  const auto result = search(pos, 2);
+
+  EXPECT_EQ(result.best_move.from(), square::a1);
+  EXPECT_EQ(result.best_move.to(), square::a8);
+}
+
+TEST(search, doesnt_hang_on_stalemate) {
+  // Stalemate position
+  auto pos = position::from_fen("k7/8/1Q6/8/8/8/8/4K3 b - - 0 1").value();
+
+  const auto result = search(pos, 3);
+
+  EXPECT_EQ(result.score, 0);
 }
 
 auto main(int argc, char* argv[]) -> int {

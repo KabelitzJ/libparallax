@@ -6,6 +6,7 @@
 
 #include <libparallax/core/bitboard.hpp>
 #include <libparallax/core/move.hpp>
+#include <libparallax/core/position.hpp>
 
 namespace parallax {
 
