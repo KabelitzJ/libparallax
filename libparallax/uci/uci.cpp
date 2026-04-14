@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 #include <libparallax/uci/uci.hpp>
 
+#include <algorithm>
+#include <charconv>
+#include <chrono>
 #include <iostream>
 #include <random>
 #include <sstream>
-#include <string>
 #include <string_view>
+#include <string>
 #include <vector>
 
 #include <fmt/format.h>
@@ -175,19 +178,75 @@ auto handle_position_command(const std::vector<std::string_view>& tokens, positi
   }
 }
 
-auto handle_go_command(position& current_position, std::ostream& output) -> void {
-  constexpr auto fixed_depth = 4;
+auto parse_go_limits(const std::vector<std::string_view>& tokens, const color mover_color) -> search_limits {
+  auto limits = search_limits{};
+  limits.max_depth = 64;
 
-  const auto result = search(current_position, fixed_depth);
+  auto wtime = 0;
+  auto btime = 0;
+  auto winc = 0;
+  auto binc = 0;
+  auto movetime = 0;
+  auto depth = 0;
+
+  for (auto index = 1uz; index + 1 < tokens.size(); index += 2) {
+    auto value = 0;
+    std::from_chars(tokens[index + 1].data(), tokens[index + 1].data() + tokens[index + 1].size(), value);
+
+    if (tokens[index] == "wtime") {
+      wtime = value;
+    } else if (tokens[index] == "btime") {
+      btime = value;
+    } else if (tokens[index] == "winc") {
+      winc = value;
+    } else if (tokens[index] == "binc") {
+      binc = value;
+    } else if (tokens[index] == "movetime") {
+      movetime = value;
+    } else if (tokens[index] == "depth") {
+      depth = value;
+    }
+  }
+
+  if (depth > 0) {
+    limits.max_depth = depth;
+    limits.max_time = std::chrono::milliseconds{0};
+
+    return limits;
+  }
+
+  if (movetime > 0) {
+    limits.max_time = std::chrono::milliseconds{movetime};
+
+    return limits;
+  }
+
+  const auto own_time = mover_color == color::white ? wtime : btime;
+  const auto own_inc = mover_color == color::white ? winc : binc;
+
+  if (own_time > 0) {
+    const auto budget = own_time / 30 + own_inc / 2;
+    limits.max_time = std::chrono::milliseconds{std::max(10, budget - 50)};
+
+    return limits;
+  }
+
+  limits.max_depth = 6;
+
+  return limits;
+}
+
+auto handle_go_command(const std::vector<std::string_view>& tokens, position& current_position, std::ostream& output) -> void {
+  const auto limits = parse_go_limits(tokens, current_position.side_to_move());
+  const auto result = search(current_position, limits);
+
+  fmt::print(output, "info depth {} score cp {} nodes {} time {}\n", result.depth, result.score, result.nodes, result.elapsed.count());
 
   if (result.best_move == move{}) {
     fmt::print(output, "bestmove 0000\n");
-    output.flush();
-    return;
+  } else {
+    fmt::print(output, "bestmove {}\n", result.best_move);
   }
-
-  fmt::print(output, "info depth {} score cp {} nodes {}\n", fixed_depth, result.score, result.nodes);
-  fmt::print(output, "bestmove {}\n", result.best_move);
 
   output.flush();
 }
@@ -219,7 +278,7 @@ auto run_uci_loop(std::istream& input, std::ostream& output) -> std::int32_t {
     } else if (command == "position") {
       handle_position_command(tokens, current_position);
     } else if (command == "go") {
-      handle_go_command(current_position, output);
+      handle_go_command(tokens, current_position, output);
     } else if (command == "quit") {
       return 0;
     }

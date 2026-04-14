@@ -627,22 +627,54 @@ TEST(eval, startpos_is_zero) {
 TEST(eval, white_up_a_queen) {
   const auto pos = position::from_fen("4k3/8/8/8/8/8/8/3QK3 w - - 0 1").value();
 
-  EXPECT_EQ(evaluate(pos), 900);
+  EXPECT_GT(evaluate(pos), 800);
+  EXPECT_LT(evaluate(pos), 1000);
 }
 
 TEST(eval, black_up_a_rook_from_blacks_perspective) {
   const auto pos = position::from_fen("3rk3/8/8/8/8/8/8/4K3 b - - 0 1").value();
 
-  EXPECT_EQ(evaluate(pos), 500);
+  EXPECT_GT(evaluate(pos), 400);
+  EXPECT_LT(evaluate(pos), 600);
+}
+
+TEST(eval, knight_in_center_beats_knight_on_rim) {
+  auto center = position::from_fen("4k3/8/8/3N4/8/8/8/4K3 w - - 0 1").value();
+  auto rim = position::from_fen("4k3/8/8/N7/8/8/8/4K3 w - - 0 1").value();
+
+  EXPECT_GT(evaluate(center), evaluate(rim));
+}
+
+TEST(eval, castled_king_beats_central_king) {
+  auto castled = position::from_fen("4k3/8/8/8/8/8/8/6K1 w - - 0 1").value();
+  auto central = position::from_fen("4k3/8/8/8/3K4/8/8/8 w - - 0 1").value();
+
+  EXPECT_GT(evaluate(castled), evaluate(central));
+}
+
+TEST(eval, pawn_near_promotion_scores_higher) {
+  auto advanced = position::from_fen("4k3/P7/8/8/8/8/8/4K3 w - - 0 1").value();
+  auto starting = position::from_fen("4k3/8/8/8/8/8/P7/4K3 w - - 0 1").value();
+
+  EXPECT_GT(evaluate(advanced), evaluate(starting));
+}
+
+TEST(eval, symmetric_position_is_zero) {
+  auto pos = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+
+  EXPECT_EQ(evaluate(pos), 0);
 }
 
 TEST(search, finds_mate_in_one) {
-  // White to move, Qa8# is mate
-  auto pos = position::from_fen("k7/8/1K6/8/8/8/8/Q7 w - - 0 1").value();
+  // White to move, Ra8# is mate-in-1
+  auto pos = position::from_fen("4k3/R7/4K3/8/8/8/8/8 w - - 0 1").value();
 
-  const auto result = search(pos, 3);
+  auto limits = search_limits{};
+  limits.max_depth = 3;
 
-  EXPECT_EQ(result.best_move.from(), square::a1);
+  const auto result = search(pos, limits);
+
+  EXPECT_EQ(result.best_move.from(), square::a7);
   EXPECT_EQ(result.best_move.to(), square::a8);
   EXPECT_GT(result.score, 50000);
 }
@@ -651,7 +683,10 @@ TEST(search, captures_free_queen) {
   // White rook on a1, black queen on a8, nothing defending
   auto pos = position::from_fen("q3k3/8/8/8/8/8/8/R3K3 w - - 0 1").value();
 
-  const auto result = search(pos, 2);
+  auto limits = search_limits{};
+  limits.max_depth = 2;
+
+  const auto result = search(pos, limits);
 
   EXPECT_EQ(result.best_move.from(), square::a1);
   EXPECT_EQ(result.best_move.to(), square::a8);
@@ -661,9 +696,41 @@ TEST(search, doesnt_hang_on_stalemate) {
   // Stalemate position
   auto pos = position::from_fen("k7/8/1Q6/8/8/8/8/4K3 b - - 0 1").value();
 
-  const auto result = search(pos, 3);
+  auto limits = search_limits{};
+  limits.max_depth = 3;
+
+  const auto result = search(pos, limits);
 
   EXPECT_EQ(result.score, 0);
+}
+
+TEST(search, qsearch_sees_recapture) {
+  // White queen captures pawn on e5, but black pawn on d6 recaptures.
+  // Without qsearch, depth-1 search thinks Qxe5 wins a pawn (+100).
+  // With qsearch, it sees the recapture and scores -800.
+  auto pos = position::from_fen("4k3/8/3p4/4p3/8/8/8/Q3K3 w - - 0 1").value();
+
+  auto limits = search_limits{};
+  limits.max_depth = 1;
+
+  const auto result = search(pos, limits);
+
+  // Qxe5 should NOT be the best move. Any other queen move should score higher.
+  const auto queen_takes_pawn = result.best_move.from() == square::a1 && result.best_move.to() == square::e5;
+  EXPECT_FALSE(queen_takes_pawn);
+}
+
+TEST(search, qsearch_captures_undefended_piece) {
+  // Free knight on e5, nothing defends it.
+  auto pos = position::from_fen("4k3/8/8/4n3/8/8/4R3/4K3 w - - 0 1").value();
+
+  auto limits = search_limits{};
+  limits.max_depth = 1;
+
+  const auto result = search(pos, limits);
+
+  EXPECT_EQ(result.best_move.from(), square::e2);
+  EXPECT_EQ(result.best_move.to(), square::e5);
 }
 
 auto main(std::int32_t argc, char* argv[]) -> std::int32_t {

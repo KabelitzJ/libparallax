@@ -125,7 +125,7 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
 
     const auto [piece_color, piece_type] = *parsed_piece;
     const auto target_square = make_square(static_cast<std::uint32_t>(current_file), static_cast<std::uint32_t>(current_rank));
-    const auto square_bit = bitboard{1} << static_cast<int>(target_square);
+    const auto square_bit = bitboard{1} << static_cast<std::int32_t>(target_square);
 
     result._pieces[static_cast<std::size_t>(piece_color)][static_cast<std::size_t>(piece_type)] |= square_bit;
     result._occupancy[static_cast<std::size_t>(piece_color)] |= square_bit;
