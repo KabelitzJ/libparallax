@@ -7,7 +7,10 @@
 #include <vector>
 
 #include <libparallax/eval/eval.hpp>
+
 #include <libparallax/movegen/movegen.hpp>
+
+#include <libparallax/search/transposition_table.hpp>
 
 namespace parallax {
 
@@ -24,12 +27,18 @@ constexpr auto mvv_lva_victim_values = std::array<std::int32_t, 7>{
   0       // none
 };
 
+auto global_tt = transposition_table{64};
+
 struct search_context {
   std::chrono::steady_clock::time_point start_time;
   std::chrono::milliseconds time_budget;
   std::uint64_t nodes;
   bool stopped;
 }; // struct search_context
+
+auto clear_transposition_table() -> void {
+  global_tt.clear();
+}
 
 auto score_move(const position& current_position, const move candidate) -> std::int32_t {
   if (candidate.is_capture()) {
@@ -128,6 +137,30 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
     return 0;
   }
 
+  const auto alpha_original = alpha;
+  const auto key = current_position.zobrist();
+
+  const auto* entry = global_tt.probe(key);
+  auto tt_move = move{};
+
+  if (entry != nullptr) {
+    tt_move = entry->best_move;
+
+    if (entry->depth >= depth) {
+      if (entry->bound == tt_bound::exact) {
+        return entry->score;
+      }
+
+      if (entry->bound == tt_bound::lower && entry->score >= beta) {
+        return entry->score;
+      }
+
+      if (entry->bound == tt_bound::upper && entry->score <= alpha) {
+        return entry->score;
+      }
+    }
+  }
+
   if (depth == 0) {
     return quiescence(current_position, alpha, beta, context);
   }
@@ -144,7 +177,17 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
 
   order_moves(current_position, legal_moves);
 
+  if (tt_move != move{}) {
+    for (auto index = 0uz; index < legal_moves.size(); ++index) {
+      if (legal_moves[index] == tt_move) {
+        std::swap(legal_moves[0], legal_moves[index]);
+        break;
+      }
+    }
+  }
+
   auto best_score = -infinity_score;
+  auto best_move_found = move{};
 
   for (const auto candidate : legal_moves) {
     current_position.make_move(candidate);
@@ -157,6 +200,7 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
 
     if (child_score > best_score) {
       best_score = child_score;
+      best_move_found = candidate;
     }
 
     if (best_score > alpha) {
@@ -167,6 +211,16 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
       break;
     }
   }
+
+  auto stored_bound = tt_bound::exact;
+
+  if (best_score <= alpha_original) {
+    stored_bound = tt_bound::upper;
+  } else if (best_score >= beta) {
+    stored_bound = tt_bound::lower;
+  }
+
+  global_tt.store(key, best_move_found, best_score, static_cast<std::int16_t>(depth), stored_bound);
 
   return best_score;
 }

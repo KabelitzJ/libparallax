@@ -188,6 +188,8 @@ auto position::from_fen(const std::string_view fen) -> std::expected<position, s
 
   result._fullmove_number = static_cast<std::uint16_t>(fullmove_number);
 
+  result.recompute_zobrist();
+
   return result;
 }
 
@@ -295,6 +297,8 @@ auto position::place_piece(const color piece_color, const piece piece_type, cons
   _pieces[static_cast<std::size_t>(piece_color)][static_cast<std::size_t>(piece_type)] |= square_bit;
   _occupancy[static_cast<std::size_t>(piece_color)] |= square_bit;
   _mailbox[static_cast<std::size_t>(target_square)] = piece_type;
+
+  _zobrist ^= zobrist::piece_square_key(piece_color, piece_type, target_square);
 }
 
 auto position::remove_piece(const color piece_color, const piece piece_type, const square target_square) noexcept -> void {
@@ -303,11 +307,41 @@ auto position::remove_piece(const color piece_color, const piece piece_type, con
   _pieces[static_cast<std::size_t>(piece_color)][static_cast<std::size_t>(piece_type)] &= ~square_bit;
   _occupancy[static_cast<std::size_t>(piece_color)] &= ~square_bit;
   _mailbox[static_cast<std::size_t>(target_square)] = piece::none;
+
+  _zobrist ^= zobrist::piece_square_key(piece_color, piece_type, target_square);
 }
 
 auto position::move_piece(const color piece_color, const piece piece_type, const square from_square, const square to_square) noexcept -> void {
   remove_piece(piece_color, piece_type, from_square);
   place_piece(piece_color, piece_type, to_square);
+}
+
+auto position::recompute_zobrist() noexcept -> void {
+  auto hash = std::uint64_t{0};
+
+  for (auto square_index = 0uz; square_index < 64; ++square_index) {
+    const auto target_square = static_cast<square>(square_index);
+    const auto piece_type = _mailbox[square_index];
+
+    if (piece_type == piece::none) {
+      continue;
+    }
+
+    const auto piece_color = (_occupancy[0] & square_to_bit(target_square)) ? color::white : color::black;
+    hash ^= zobrist::piece_square_key(piece_color, piece_type, target_square);
+  }
+
+  hash ^= zobrist::castling_keys[_castling_rights];
+
+  if (_ep_square != square::none) {
+    hash ^= zobrist::en_passant_file_keys[file_of(_ep_square)];
+  }
+
+  if (_side_to_move == color::black) {
+    hash ^= zobrist::side_to_move_key;
+  }
+
+  _zobrist = hash;
 }
 
 auto position::is_square_attacked(const square target_square, const color attacker_color) const noexcept -> bool {
@@ -347,6 +381,34 @@ auto position::is_square_attacked(const square target_square, const color attack
   return false;
 }
 
+auto position::debug_recomputed_zobrist() const noexcept -> std::uint64_t {
+  auto hash = std::uint64_t{0};
+
+  for (auto square_index = 0uz; square_index < 64; ++square_index) {
+    const auto target_square = static_cast<square>(square_index);
+    const auto piece_type = _mailbox[square_index];
+
+    if (piece_type == piece::none) {
+      continue;
+    }
+
+    const auto piece_color = (_occupancy[0] & square_to_bit(target_square)) ? color::white : color::black;
+    hash ^= zobrist::piece_square_key(piece_color, piece_type, target_square);
+  }
+
+  hash ^= zobrist::castling_keys[_castling_rights];
+
+  if (_ep_square != square::none) {
+    hash ^= zobrist::en_passant_file_keys[file_of(_ep_square)];
+  }
+
+  if (_side_to_move == color::black) {
+    hash ^= zobrist::side_to_move_key;
+  }
+
+  return hash;
+}
+
 auto position::en_passant_square() const noexcept -> square {
   return _ep_square;
 }
@@ -371,22 +433,30 @@ auto position::make_move(const move played_move) -> void {
   undo.halfmove_clock = _halfmove_clock;
   undo.zobrist = _zobrist;
 
+  if (_ep_square != square::none) {
+    _zobrist ^= zobrist::en_passant_file_keys[file_of(_ep_square)];
+  }
+
+  _zobrist ^= zobrist::castling_keys[_castling_rights];
+
   _ep_square = square::none;
   ++_halfmove_clock;
 
   if (mover_piece == piece::pawn) {
-    _halfmove_clock = 0u;
+    _halfmove_clock = 0;
   }
 
   switch (move_flags) {
     case move_flag::quiet: {
       move_piece(mover_color, mover_piece, from_square, to_square);
+
       break;
     }
     case move_flag::double_push: {
       move_piece(mover_color, mover_piece, from_square, to_square);
       const auto ep_rank_offset = mover_color == color::white ? -8 : 8;
-      _ep_square = static_cast<square>(static_cast<std::int32_t>(to_square) + ep_rank_offset);
+      _ep_square = static_cast<square>(static_cast<int>(to_square) + ep_rank_offset);
+
       break;
     }
     case move_flag::capture: {
@@ -394,15 +464,17 @@ auto position::make_move(const move played_move) -> void {
       undo.captured = captured_piece;
       remove_piece(enemy_color, captured_piece, to_square);
       move_piece(mover_color, mover_piece, from_square, to_square);
-      _halfmove_clock = 0u;
+      _halfmove_clock = 0;
+
       break;
     }
     case move_flag::en_passant: {
-      const auto captured_pawn_square = static_cast<square>(static_cast<std::int32_t>(to_square) + (mover_color == color::white ? -8 : 8));
+      const auto captured_pawn_square = static_cast<square>(static_cast<int>(to_square) + (mover_color == color::white ? -8 : 8));
       undo.captured = piece::pawn;
       remove_piece(enemy_color, piece::pawn, captured_pawn_square);
       move_piece(mover_color, piece::pawn, from_square, to_square);
-      _halfmove_clock = 0u;
+      _halfmove_clock = 0;
+
       break;
     }
     case move_flag::castle_king: {
@@ -410,6 +482,7 @@ auto position::make_move(const move played_move) -> void {
       const auto rook_from = mover_color == color::white ? square::h1 : square::h8;
       const auto rook_to = mover_color == color::white ? square::f1 : square::f8;
       move_piece(mover_color, piece::rook, rook_from, rook_to);
+
       break;
     }
     case move_flag::castle_queen: {
@@ -417,6 +490,7 @@ auto position::make_move(const move played_move) -> void {
       const auto rook_from = mover_color == color::white ? square::a1 : square::a8;
       const auto rook_to = mover_color == color::white ? square::d1 : square::d8;
       move_piece(mover_color, piece::rook, rook_from, rook_to);
+
       break;
     }
     case move_flag::promo_knight:
@@ -426,7 +500,8 @@ auto position::make_move(const move played_move) -> void {
       const auto promoted_to = static_cast<piece>(static_cast<std::uint8_t>(move_flags) - static_cast<std::uint8_t>(move_flag::promo_knight) + static_cast<std::uint8_t>(piece::knight));
       remove_piece(mover_color, piece::pawn, from_square);
       place_piece(mover_color, promoted_to, to_square);
-      _halfmove_clock = 0u;
+      _halfmove_clock = 0;
+
       break;
     }
     case move_flag::promo_capture_knight:
@@ -439,14 +514,21 @@ auto position::make_move(const move played_move) -> void {
       remove_piece(enemy_color, captured_piece, to_square);
       remove_piece(mover_color, piece::pawn, from_square);
       place_piece(mover_color, promoted_to, to_square);
-      _halfmove_clock = 0u;
+      _halfmove_clock = 0;
+
       break;
     }
-
   }
 
   _castling_rights &= castling_update_table[static_cast<std::size_t>(from_square)];
   _castling_rights &= castling_update_table[static_cast<std::size_t>(to_square)];
+
+  if (_ep_square != square::none) {
+    _zobrist ^= zobrist::en_passant_file_keys[file_of(_ep_square)];
+  }
+
+  _zobrist ^= zobrist::castling_keys[_castling_rights];
+  _zobrist ^= zobrist::side_to_move_key;
 
   if (mover_color == color::black) {
     ++_fullmove_number;

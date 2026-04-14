@@ -114,6 +114,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/eval/eval.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/movegen/movegen.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.cpp"
+    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/transposition_table.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/uci/uci.cpp"
   PUBLIC
     FILE_SET HEADERS
@@ -122,11 +123,12 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/core.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/move.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/position.hpp"
+      "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/zobrist.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/eval/eval.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/movegen/movegen.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/perft/perft.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.hpp"
-      "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.hpp"
+      "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/transposition_table.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/uci/uci.hpp"
 )
 

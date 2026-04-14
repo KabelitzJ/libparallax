@@ -275,6 +275,7 @@ auto run_uci_loop(std::istream& input, std::ostream& output) -> std::int32_t {
       output.flush();
     } else if (command == "ucinewgame") {
       current_position = position::from_fen(startpos_fen).value();
+      clear_transposition_table();
     } else if (command == "position") {
       handle_position_command(tokens, current_position);
     } else if (command == "go") {

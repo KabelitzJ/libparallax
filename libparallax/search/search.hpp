@@ -7,6 +7,8 @@
 #include <libparallax/core/move.hpp>
 #include <libparallax/core/position.hpp>
 
+#include <libparallax/search/transposition_table.hpp>
+
 namespace parallax {
 
 struct search_limits {
@@ -21,6 +23,8 @@ struct search_result {
   std::uint64_t nodes;
   std::chrono::milliseconds elapsed;
 }; // struct search_result
+
+auto clear_transposition_table() -> void;
 
 auto search(position& current_position, const search_limits& limits) -> search_result;
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <vector>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -731,6 +732,139 @@ TEST(search, qsearch_captures_undefended_piece) {
 
   EXPECT_EQ(result.best_move.from(), square::e2);
   EXPECT_EQ(result.best_move.to(), square::e5);
+}
+
+TEST(zobrist, startpos_has_deterministic_hash) {
+  auto pos1 = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+  auto pos2 = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+
+  EXPECT_EQ(pos1.zobrist(), pos2.zobrist());
+  EXPECT_NE(pos1.zobrist(), 0ULL);
+}
+
+TEST(zobrist, different_positions_have_different_hashes) {
+  auto startpos = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+  auto kiwipete = position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1").value();
+
+  EXPECT_NE(startpos.zobrist(), kiwipete.zobrist());
+}
+
+TEST(zobrist, side_to_move_changes_hash) {
+  auto white = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+  auto black = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1").value();
+
+  EXPECT_NE(white.zobrist(), black.zobrist());
+}
+
+TEST(zobrist, make_unmake_preserves_hash) {
+  auto pos = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+  const auto original_hash = pos.zobrist();
+
+  pos.make_move(move{square::e2, square::e4, move_flag::double_push});
+  EXPECT_NE(pos.zobrist(), original_hash);
+
+  pos.unmake_move();
+  EXPECT_EQ(pos.zobrist(), original_hash);
+}
+
+TEST(zobrist, transposition_same_hash) {
+  // Two knight moves for each side in different order — no pawn moves, no ep issues.
+  // 1. Nf3 Nf6 2. Nc3 Nc6 == 1. Nc3 Nc6 2. Nf3 Nf6
+  auto path1 = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+  path1.make_move(move{square::g1, square::f3, move_flag::quiet});
+  path1.make_move(move{square::g8, square::f6, move_flag::quiet});
+  path1.make_move(move{square::b1, square::c3, move_flag::quiet});
+  path1.make_move(move{square::b8, square::c6, move_flag::quiet});
+
+  auto path2 = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+  path2.make_move(move{square::b1, square::c3, move_flag::quiet});
+  path2.make_move(move{square::b8, square::c6, move_flag::quiet});
+  path2.make_move(move{square::g1, square::f3, move_flag::quiet});
+  path2.make_move(move{square::g8, square::f6, move_flag::quiet});
+
+  EXPECT_EQ(path1.zobrist(), path2.zobrist());
+}
+
+TEST(zobrist, perft_hash_consistency_startpos_depth_4) {
+  auto pos = position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").value();
+
+  std::function<void(position&, int)> check = [&](position& current, int depth) -> void {
+    ASSERT_EQ(current.zobrist(), current.debug_recomputed_zobrist());
+
+    if (depth == 0) {
+      return;
+    }
+
+    const auto moves = generate_legal_moves(current);
+    for (const auto candidate : moves) {
+      current.make_move(candidate);
+      check(current, depth - 1);
+      current.unmake_move();
+    }
+  };
+
+  check(pos, 4);
+}
+
+TEST(zobrist, perft_hash_consistency_kiwipete_depth_3) {
+  auto pos = position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1").value();
+
+  std::function<void(position&, int)> check = [&](position& current, int depth) -> void {
+    ASSERT_EQ(current.zobrist(), current.debug_recomputed_zobrist());
+
+    if (depth == 0) {
+      return;
+    }
+
+    const auto moves = generate_legal_moves(current);
+    for (const auto candidate : moves) {
+      current.make_move(candidate);
+      check(current, depth - 1);
+      current.unmake_move();
+    }
+  };
+
+  check(pos, 3);
+}
+
+TEST(tt, empty_probe_returns_null) {
+  auto table = transposition_table{1};
+
+  EXPECT_EQ(table.probe(0x12345), nullptr);
+}
+
+TEST(tt, store_and_probe_roundtrip) {
+  auto table = transposition_table{1};
+
+  const auto key = std::uint64_t{0xDEADBEEF};
+  const auto stored_move = move{square::e2, square::e4, move_flag::double_push};
+
+  table.store(key, stored_move, 42, 5, tt_bound::exact);
+
+  const auto* entry = table.probe(key);
+
+  ASSERT_NE(entry, nullptr);
+  EXPECT_EQ(entry->best_move, stored_move);
+  EXPECT_EQ(entry->score, 42);
+  EXPECT_EQ(entry->depth, 5);
+  EXPECT_EQ(entry->bound, tt_bound::exact);
+}
+
+TEST(tt, wrong_key_returns_null) {
+  auto table = transposition_table{1};
+
+  table.store(0xAAAA, move{}, 0, 0, tt_bound::exact);
+
+  EXPECT_EQ(table.probe(0xBBBB), nullptr);
+}
+
+TEST(tt, clear_removes_entries) {
+  auto table = transposition_table{1};
+
+  table.store(0xAAAA, move{}, 0, 5, tt_bound::exact);
+  table.clear();
+
+  EXPECT_EQ(table.probe(0xAAAA), nullptr);
 }
 
 auto main(std::int32_t argc, char* argv[]) -> std::int32_t {

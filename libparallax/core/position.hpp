@@ -12,6 +12,7 @@
 
 #include <libparallax/core/bitboard.hpp>
 #include <libparallax/core/move.hpp>
+#include <libparallax/core/zobrist.hpp>
 
 namespace parallax {
 
@@ -87,6 +88,8 @@ public:
 
   auto is_square_attacked(const square target_square, const color attacker_color) const noexcept -> bool;
 
+  auto debug_recomputed_zobrist() const noexcept -> std::uint64_t;
+
 private:
 
   auto place_piece(const color piece_color, const piece piece_type, const square target_square) noexcept -> void;
@@ -94,6 +97,8 @@ private:
   auto remove_piece(const color piece_color, const piece piece_type, const square target_square) noexcept -> void;
 
   auto move_piece(const color piece_color, const piece piece_type, const square from_square, const square to_square) noexcept -> void;
+
+  auto recompute_zobrist() noexcept -> void;
 
   std::array<std::array<bitboard, 6>, 2> _pieces{};
   std::array<bitboard, 2> _occupancy{};
