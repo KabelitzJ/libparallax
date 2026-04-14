@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include <array>
+#include <string_view>
 
 #include <fmt/format.h>
 
@@ -33,11 +34,23 @@ enum class move_flag : std::uint8_t {
   promo_bishop = 9,
   promo_rook = 10,
   promo_queen = 11,
-  promo_capture_knight  = 12,
+  promo_capture_knight = 12,
   promo_capture_bishop = 13,
   promo_capture_rook = 14,
   promo_capture_queen = 15,
 }; // enum class move_flag
+
+constexpr auto make_square(int file, int rank) noexcept -> square {
+  return static_cast<square>(rank * 8 + file);
+}
+
+constexpr auto file_of(const square square) noexcept -> int {
+  return static_cast<int>(square) & 7;
+}
+
+constexpr auto rank_of(const square square) noexcept -> int {
+  return static_cast<int>(square) >> 3;
+}
 
 class move {
 
@@ -45,27 +58,40 @@ public:
 
   constexpr move() noexcept = default;
 
-  constexpr move(square from, square to, move_flag flag) noexcept;
+  constexpr move(const square from, const square to, const move_flag flag) noexcept
+  : _data{static_cast<std::uint16_t>((static_cast<std::uint16_t>(from) & 0x3F) | ((static_cast<std::uint16_t>(to) & 0x3F) << 6) | ((static_cast<std::uint16_t>(flag) & 0x0F) << 12))} { }
 
-  constexpr auto from() const noexcept -> square;
+  constexpr auto from() const noexcept -> square {
+    return static_cast<square>(_data & 0x3F);
+  }
 
-  constexpr auto to() const noexcept -> square;
+  constexpr auto to() const noexcept -> square {
+    return static_cast<square>((_data >> 6) & 0x3F);
+  }
 
-  constexpr auto flag() const noexcept -> move_flag;
+  constexpr auto flag() const noexcept -> move_flag {
+    return static_cast<move_flag>((_data >> 12) & 0x0F);
+  }
 
-  constexpr auto is_capture() const noexcept -> bool;
+  constexpr auto is_capture() const noexcept -> bool {
+    return ((_data >> 12) & 0x4) != 0;
+  }
 
-  constexpr auto is_promotion() const noexcept -> bool;
+  constexpr auto is_promotion() const noexcept -> bool {
+    return ((_data >> 12) & 0x8) != 0;
+  }
 
-  constexpr auto raw() const noexcept -> std::uint16_t;
+  constexpr auto raw() const noexcept -> std::uint16_t {
+    return _data;
+  }
 
-  friend constexpr auto operator==(const move& lhs, const move& rhs) noexcept -> bool = default;
+  friend constexpr auto operator==(move lhs, move rhs) noexcept -> bool = default;
 
 private:
 
   std::uint16_t _data{0};
 
-};
+}; // class move
 
 } // namespace parallax
 
@@ -75,8 +101,28 @@ struct fmt::formatter<parallax::move> : fmt::formatter<std::string_view> {
   using base = fmt::formatter<std::string_view>;
 
   template<typename FormatContext>
-  auto format(const parallax::move& move, FormatContext& context) const noexcept -> decltype(context.out());
+  auto format(parallax::move move, FormatContext& context) const -> decltype(context.out()) {
+    auto buffer = std::array<char, 6>{};
+    auto from = static_cast<std::uint8_t>(move.from());
+    auto to = static_cast<std::uint8_t>(move.to());
 
-}; // struct std::formatter
+    buffer[0] = 'a' + (from & 7);
+    buffer[1] = '1' + (from >> 3);
+    buffer[2] = 'a' + (to & 7);
+    buffer[3] = '1' + (to >> 3);
+
+    auto length = 4uz;
+
+    if (move.is_promotion()) {
+      constexpr auto promotion = std::array{'n', 'b', 'r', 'q'};
+
+      buffer[4] = promotion[static_cast<std::uint8_t>(move.flag()) & 0x3];
+      length = 5;
+    }
+
+    return base::format(std::string_view{buffer.data(), length}, context);
+  }
+
+}; // struct fmt::formatter<parallax::move>
 
 #endif // LIBPARALLAX_CORE_MOVE_HPP_

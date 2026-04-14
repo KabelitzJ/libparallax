@@ -113,6 +113,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/core.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/move.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/position.cpp"
+    "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/movegen/movegen.cpp"
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS ${PROJECT_SOURCE_DIR}
