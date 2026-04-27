@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(fmt CONFIG)
+find_dependency(yaml-cpp CONFIG)
+find_dependency(range-v3 CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/libparallaxTargets.cmake")
+
+check_required_components(libparallax)

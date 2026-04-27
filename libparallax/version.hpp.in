@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT
+#ifndef LIBPARALLAX_VERSION_HPP_
+#define LIBPARALLAX_VERSION_HPP_
+
+#include <cstdint>
+#include <string_view>
+
+namespace parallax::version {
+
+inline constexpr auto major = std::uint32_t{@PROJECT_VERSION_MAJOR@};
+inline constexpr auto minor = std::uint32_t{@PROJECT_VERSION_MINOR@};
+inline constexpr auto patch = std::uint32_t{@PROJECT_VERSION_PATCH@};
+
+inline constexpr auto combined = (major << 16) | (minor << 8) | patch;
+
+inline constexpr auto string = std::string_view{"@PROJECT_VERSION@"};
+
+} // namespace parallax::version
+
+#endif // LIBPARALLAX_VERSION_HPP_

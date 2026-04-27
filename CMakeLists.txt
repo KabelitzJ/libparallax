@@ -93,7 +93,7 @@ message(STATUS "Git commit: ${PARALLAX_COMMIT_HASH}")
 
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
-# configure_file("${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/${PROJECT_NAME}/version.hpp.in" "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/${PROJECT_NAME}/version.hpp" @ONLY)
+configure_file("${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/version.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}/version.hpp" @ONLY)
 
 if(${PARALLAX_BUILD_SHARED})
   add_library(${PROJECT_NAME} SHARED)
@@ -117,7 +117,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/transposition_table.cpp"
     "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/uci/uci.cpp"
   PUBLIC
-    FILE_SET HEADERS
+    FILE_SET headers TYPE HEADERS
     BASE_DIRS ${PROJECT_SOURCE_DIR}
     FILES
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/core/core.hpp"
@@ -130,12 +130,17 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/search.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/search/transposition_table.hpp"
       "${PROJECT_SOURCE_DIR}/${CMAKE_PROJECT_NAME}/uci/uci.hpp"
+    FILE_SET generated_headers TYPE HEADERS
+    BASE_DIRS ${PROJECT_BINARY_DIR}
+    FILES
+      "${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}/version.hpp"
 )
 
 target_include_directories(
   ${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
@@ -184,21 +189,6 @@ target_compile_options(
     -Wuseless-cast
 )
 
-install(
-  TARGETS
-    ${PROJECT_NAME}
-  EXPORT
-    libPARALLAXTargets
-  LIBRARY 
-    DESTINATION lib
-  ARCHIVE 
-    DESTINATION lib
-  RUNTIME 
-    DESTINATION bin
-  FILE_SET 
-    HEADERS 
-)
-
 set(_LINK_OPTIONS)
 set(_COMPILE_OPTIONS)
 
@@ -234,3 +224,48 @@ endif()
 if(${PARALLAX_BUILD_BENCHMARKS} AND EXISTS "${PROJECT_SOURCE_DIR}/benchmarks")
   add_subdirectory(${PROJECT_SOURCE_DIR}/benchmarks)
 endif()
+
+install(
+  TARGETS
+    ${PROJECT_NAME}
+  EXPORT
+    libparallaxTargets
+  LIBRARY 
+    DESTINATION lib
+  ARCHIVE 
+    DESTINATION lib
+  RUNTIME 
+    DESTINATION bin
+  FILE_SET 
+    headers
+  FILE_SET
+    generated_headers
+)
+
+install(
+  EXPORT libparallaxTargets
+  FILE libparallaxTargets.cmake
+  NAMESPACE libparallax::
+  DESTINATION lib/cmake/libparallax
+)
+
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/libparallaxConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libparallaxConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/libparallaxConfig.cmake"
+  INSTALL_DESTINATION lib/cmake/libparallax
+)
+
+install(
+  FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/libparallaxConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/libparallaxConfigVersion.cmake"
+  DESTINATION lib/cmake/libparallax
+)
