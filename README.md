@@ -1,5 +1,9 @@
 # libparallax
 
+![C++23](https://img.shields.io/badge/Language-C%2B%2B23-blue?logo=c%2B%2B&logoColor=blue)
+![Version 0.1.0](https://img.shields.io/badge/Version-0.1.0-red?logo=git)
+![MIT License](https://img.shields.io/badge/License-MIT-green?logo=opensourceinitiative&logoColor=green)
+
 A modern C++23 chess engine library. Provides bitboard-based move generation,
 evaluation, alpha-beta search with a transposition table, perft, and a UCI
 frontend. Ships as a static or shared library plus an optional UCI demo
@@ -29,8 +33,8 @@ Runtime dependencies (fetched via Conan): `fmt`, `spdlog`, `yaml-cpp`,
 
 ```sh
 conan install . --build=missing -s build_type=Release
-cmake --prefix conan-release
-cmake --build --config Release
+cmake -S . -B build/x86_64/gcc/release/
+cmake --build build/x86_64/gcc/release/ --parallel $(nproc)
 ```
 
 The Conan layout places build artifacts under
