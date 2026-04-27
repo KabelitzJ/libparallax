@@ -16,6 +16,8 @@ namespace parallax {
 
 constexpr auto infinity_score = std::int32_t{1'000'000};
 constexpr auto mate_score = std::int32_t{100'000};
+constexpr auto max_ply = std::int32_t{64};
+constexpr auto null_move_reduction = std::int32_t{3};
 
 constexpr auto mvv_lva_victim_values = std::array<std::int32_t, 7>{
   100,    // pawn
@@ -34,30 +36,50 @@ struct search_context {
   std::chrono::milliseconds time_budget;
   std::uint64_t nodes;
   bool stopped;
+
+  std::array<std::array<move, 2>, max_ply> killers;
+  std::array<std::array<std::array<std::int32_t, 64>, 64>, 2> history;
 }; // struct search_context
 
 auto clear_transposition_table() -> void {
   global_tt.clear();
 }
 
-auto score_move(const position& current_position, const move candidate) -> std::int32_t {
+auto score_move(const position& current_position, const move candidate, const search_context& context, const std::int32_t ply) -> std::int32_t {
   if (candidate.is_capture()) {
-    const auto victim = candidate.flag() == move_flag::en_passant ? piece::pawn : current_position.piece_at(candidate.to());
+    const auto victim = candidate.flag() == move_flag::en_passant
+      ? piece::pawn
+      : current_position.piece_at(candidate.to());
     const auto attacker = current_position.piece_at(candidate.from());
 
-    return 1'000'000 + mvv_lva_victim_values[static_cast<std::size_t>(victim)] * 10 - mvv_lva_victim_values[static_cast<std::size_t>(attacker)];
+    return 1'000'000 + mvv_lva_victim_values[static_cast<std::size_t>(victim)] * 10
+      - mvv_lva_victim_values[static_cast<std::size_t>(attacker)];
   }
 
   if (candidate.is_promotion()) {
     return 900'000;
   }
 
-  return 0;
+  if (ply < max_ply) {
+    if (candidate == context.killers[ply][0]) {
+      return 800'000;
+    }
+
+    if (candidate == context.killers[ply][1]) {
+      return 700'000;
+    }
+  }
+
+  const auto mover = static_cast<std::size_t>(current_position.side_to_move());
+  const auto from_index = static_cast<std::size_t>(candidate.from());
+  const auto to_index = static_cast<std::size_t>(candidate.to());
+
+  return context.history[mover][from_index][to_index];
 }
 
-auto order_moves(const position& current_position, std::vector<move>& moves) -> void {
+auto order_moves(const position& current_position, std::vector<move>& moves, const search_context& context, const std::int32_t ply) -> void {
   std::sort(moves.begin(), moves.end(), [&](const move lhs, const move rhs) {
-    return score_move(current_position, lhs) > score_move(current_position, rhs);
+    return score_move(current_position, lhs, context, ply) > score_move(current_position, rhs, context, ply);
   });
 }
 
@@ -103,7 +125,7 @@ auto quiescence(position& current_position, std::int32_t alpha, const std::int32
 
   auto legal_moves = generate_legal_moves(current_position);
 
-  order_moves(current_position, legal_moves);
+  order_moves(current_position, legal_moves, context, max_ply);
 
   for (const auto candidate : legal_moves) {
     if (!candidate.is_capture() && !candidate.is_promotion()) {
@@ -130,7 +152,7 @@ auto quiescence(position& current_position, std::int32_t alpha, const std::int32
   return alpha;
 }
 
-auto negamax(position& current_position, const std::int32_t depth, std::int32_t alpha, const std::int32_t beta, search_context& context) -> std::int32_t {
+auto negamax(position& current_position, const std::int32_t depth, const std::int32_t ply, std::int32_t alpha, const std::int32_t beta, search_context& context) -> std::int32_t {
   ++context.nodes;
 
   if (time_up(context)) {
@@ -141,6 +163,7 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
   const auto key = current_position.zobrist();
 
   const auto* entry = global_tt.probe(key);
+
   auto tt_move = move{};
 
   if (entry != nullptr) {
@@ -161,21 +184,39 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
     }
   }
 
-  if (depth == 0) {
+  const auto in_check = current_position.in_check();
+  const auto effective_depth = in_check ? depth + 1 : depth;
+
+  if (effective_depth == 0) {
     return quiescence(current_position, alpha, beta, context);
+  }
+
+  if (effective_depth >= null_move_reduction + 1 && !in_check && current_position.has_non_pawn_material(current_position.side_to_move())) {
+
+    current_position.make_null_move();
+    const auto null_score = -negamax(current_position, effective_depth - 1 - null_move_reduction, ply + 1, -beta, -beta + 1, context);
+    current_position.unmake_null_move();
+
+    if (context.stopped) {
+      return 0;
+    }
+
+    if (null_score >= beta) {
+      return null_score;
+    }
   }
 
   auto legal_moves = generate_legal_moves(current_position);
 
   if (legal_moves.empty()) {
-    if (current_position.in_check()) {
-      return -mate_score + (1000 - depth);
+    if (in_check) {
+      return -mate_score + (1000 - effective_depth);
     }
 
     return 0;
   }
 
-  order_moves(current_position, legal_moves);
+  order_moves(current_position, legal_moves, context, ply);
 
   if (tt_move != move{}) {
     for (auto index = 0uz; index < legal_moves.size(); ++index) {
@@ -191,7 +232,7 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
 
   for (const auto candidate : legal_moves) {
     current_position.make_move(candidate);
-    const auto child_score = -negamax(current_position, depth - 1, -beta, -alpha, context);
+    const auto child_score = -negamax(current_position, effective_depth - 1, ply + 1, -beta, -alpha, context);
     current_position.unmake_move();
 
     if (context.stopped) {
@@ -208,6 +249,21 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
     }
 
     if (alpha >= beta) {
+      if (!candidate.is_capture() && !candidate.is_promotion()) {
+        if (ply < max_ply) {
+          if (context.killers[ply][0] != candidate) {
+            context.killers[ply][1] = context.killers[ply][0];
+            context.killers[ply][0] = candidate;
+          }
+        }
+
+        const auto mover = static_cast<std::size_t>(current_position.side_to_move());
+        const auto from_index = static_cast<std::size_t>(candidate.from());
+        const auto to_index = static_cast<std::size_t>(candidate.to());
+
+        context.history[mover][from_index][to_index] += effective_depth * effective_depth;
+      }
+
       break;
     }
   }
@@ -220,7 +276,7 @@ auto negamax(position& current_position, const std::int32_t depth, std::int32_t 
     stored_bound = tt_bound::lower;
   }
 
-  global_tt.store(key, best_move_found, best_score, static_cast<std::int16_t>(depth), stored_bound);
+  global_tt.store(key, best_move_found, best_score, static_cast<std::int16_t>(effective_depth), stored_bound);
 
   return best_score;
 }
@@ -231,6 +287,8 @@ auto search(position& current_position, const search_limits& limits) -> search_r
   context.time_budget = limits.max_time;
   context.nodes = 0;
   context.stopped = false;
+  context.killers = {};
+  context.history = {};
 
   auto result = search_result{};
 
@@ -241,7 +299,7 @@ auto search(position& current_position, const search_limits& limits) -> search_r
     return result;
   }
 
-  order_moves(current_position, root_moves);
+  order_moves(current_position, root_moves, context, 0);
   result.best_move = root_moves[0];
 
   for (auto current_depth = std::int32_t{1}; current_depth <= limits.max_depth; ++current_depth) {
@@ -252,7 +310,7 @@ auto search(position& current_position, const search_limits& limits) -> search_r
 
     for (const auto candidate : root_moves) {
       current_position.make_move(candidate);
-      const auto child_score = -negamax(current_position, current_depth - 1, -beta, -alpha, context);
+      const auto child_score = -negamax(current_position, current_depth - 1, 1, -beta, -alpha, context);
       current_position.unmake_move();
 
       if (context.stopped) {

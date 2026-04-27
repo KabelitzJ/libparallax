@@ -88,6 +88,12 @@ public:
 
   auto is_square_attacked(const square target_square, const color attacker_color) const noexcept -> bool;
 
+  auto make_null_move() -> void;
+
+  auto unmake_null_move() -> void;
+
+  auto has_non_pawn_material(const color piece_color) const noexcept -> bool;
+
   auto debug_recomputed_zobrist() const noexcept -> std::uint64_t;
 
 private:

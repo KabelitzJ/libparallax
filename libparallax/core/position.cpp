@@ -629,4 +629,55 @@ auto position::in_check() const noexcept -> bool {
   return is_square_attacked(king_square, attacker_color);
 }
 
+auto position::make_null_move() -> void {
+  auto undo = undo_info{};
+  undo.played = move{};
+  undo.captured = piece::none;
+  undo.ep_square = _ep_square;
+  undo.castling_rights = _castling_rights;
+  undo.halfmove_clock = _halfmove_clock;
+  undo.zobrist = _zobrist;
+
+  if (_ep_square != square::none) {
+    _zobrist ^= zobrist::en_passant_file_keys[file_of(_ep_square)];
+  }
+
+  _ep_square = square::none;
+  _zobrist ^= zobrist::side_to_move_key;
+  _side_to_move = _side_to_move == color::white ? color::black : color::white;
+
+  ++_halfmove_clock;
+
+  if (_side_to_move == color::white) {
+    ++_fullmove_number;
+  }
+
+  _history.push_back(undo);
+}
+
+auto position::unmake_null_move() -> void {
+  const auto undo = _history.back();
+  _history.pop_back();
+
+  _side_to_move = _side_to_move == color::white ? color::black : color::white;
+
+  if (_side_to_move == color::black) {
+    --_fullmove_number;
+  }
+
+  _ep_square = undo.ep_square;
+  _castling_rights = undo.castling_rights;
+  _halfmove_clock = undo.halfmove_clock;
+  _zobrist = undo.zobrist;
+}
+
+auto position::has_non_pawn_material(const color piece_color) const noexcept -> bool {
+  const auto color_index = static_cast<std::size_t>(piece_color);
+
+  return _pieces[color_index][static_cast<std::size_t>(piece::knight)] != 0
+    || _pieces[color_index][static_cast<std::size_t>(piece::bishop)] != 0
+    || _pieces[color_index][static_cast<std::size_t>(piece::rook)] != 0
+    || _pieces[color_index][static_cast<std::size_t>(piece::queen)] != 0;
+}
+
 } // namespace parallax
